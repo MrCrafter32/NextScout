@@ -1,103 +1,216 @@
-import Image from "next/image";
+'use client';
+
+import { useState, FC, ReactNode, FormEvent } from 'react';
+
+// --- Type Definitions ---
+interface Vulnerability {
+  type: string;
+  page: string;
+  formAction: string;
+  vulnerableParams: string[];
+}
+
+interface FormInput {
+    type: string;
+    name?: string;
+}
+
+interface DiscoveredForm {
+    page: string;
+    action: string;
+    method: string;
+    inputs: FormInput[];
+}
+
+interface ScanResults {
+    message: string;
+    vulnerabilities: Vulnerability[];
+    discoveredLinks: string[];
+    discoveredForms: DiscoveredForm[];
+}
+
+
+// --- UI Components ---
+const ChevronDown: FC = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+);
+const AlertTriangle: FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+);
+
+interface CollapsibleProps {
+    title: string;
+    count: number;
+    children: ReactNode;
+}
+
+const CollapsibleSection: FC<CollapsibleProps> = ({ title, count, children }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="bg-gray-800 border border-gray-700 rounded-lg">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full flex justify-between items-center p-4 text-left font-semibold"
+            >
+                <span>{title} ({count})</span>
+                <span className={`transform transition-transform ${isOpen ? 'rotate-180' : ''}`}><ChevronDown /></span>
+            </button>
+            {isOpen && <div className="p-4 border-t border-gray-700">{children}</div>}
+        </div>
+    );
+};
+
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [url, setUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [results, setResults] = useState<ScanResults | null>(null);
+  const [error, setError] = useState<string>('');
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!url || !url.startsWith('http')) {
+      setError('Please enter a valid URL (e.g., http://example.com)');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+    setResults(null); 
+
+    try {
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
+
+      const data: ScanResults = await response.json();
+      setResults(data);
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleNewScan = () => {
+    setUrl('');
+    setResults(null);
+    setError('');
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center p-4 sm:p-8 bg-gray-900 text-white font-sans">
+      <div className="w-full max-w-6xl">
+        <div className="text-center mb-10">
+            <h1 className="text-5xl font-bold mb-2 text-cyan-400">Next Scout</h1>
+            <p className="text-lg text-gray-400">
+                A simple web vulnerability scanner.
+            </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Initial View & Loading State */}
+        {!results && (
+             <div className="w-full max-w-3xl mx-auto">
+                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 w-full mb-8">
+                <input
+                    type="text"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="e.g., http://testphp.vulnweb.com"
+                    className="flex-grow p-4 rounded-md bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-white transition"
+                    disabled={isLoading}
+                />
+                <button
+                    type="submit"
+                    className="bg-cyan-500 hover:bg-cyan-600 text-gray-900 font-bold py-4 px-6 rounded-md transition-colors duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    disabled={isLoading}
+                >
+                    {isLoading ? 'Scanning...' : 'Scan'}
+                </button>
+                </form>
+
+                {error && <p className="text-center my-4 text-red-400">{error}</p>}
+
+                {isLoading && (
+                <div className="text-center my-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto"></div>
+                    <p className="mt-4 text-gray-400">Analyzing target... this may take a moment.</p>
+                </div>
+                )}
+            </div>
+        )}
+
+        {/* Results View */}
+        {results && (
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Column */}
+            <div className="space-y-6">
+                <div className="p-6 bg-gray-800 rounded-lg border border-gray-700">
+                    <h2 className="text-2xl font-bold mb-4 text-cyan-400">Scan Summary</h2>
+                    <p className="text-gray-300">{results.message}</p>
+                     <button 
+                        onClick={handleNewScan}
+                        className="mt-4 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition-colors duration-300"
+                    >
+                        Start New Scan
+                    </button>
+                </div>
+            
+                {results.vulnerabilities && results.vulnerabilities.length > 0 && (
+                    <div className="p-6 bg-red-900/20 border border-red-400/50 rounded-lg">
+                        <h2 className="text-2xl font-bold mb-4 text-red-400 flex items-center gap-3">
+                            <AlertTriangle /> Vulnerabilities Found
+                        </h2>
+                        <div className="space-y-4">
+                            {results.vulnerabilities.map((vuln, index) => (
+                                <div key={index} className="bg-gray-800 p-4 rounded-md">
+                                    <p><strong className="text-cyan-400">Type:</strong> {vuln.type}</p>
+                                    <p><strong className="text-cyan-400">Location:</strong> {vuln.page}</p>
+                                    <p><strong className="text-cyan-400">Vulnerable Parameters:</strong> {vuln.vulnerableParams.join(', ')}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-6">
+                <CollapsibleSection title="Discovered Links" count={results.discoveredLinks?.length || 0}>
+                    <div className="max-h-60 overflow-y-auto text-sm space-y-2 pr-2">
+                        {results.discoveredLinks.map((link, i) => <p key={i} className="truncate text-gray-400">{link}</p>)}
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Discovered Forms" count={results.discoveredForms?.length || 0}>
+                    <div className="max-h-80 overflow-y-auto text-sm space-y-4 pr-2">
+                        {results.discoveredForms.map((form, i) => (
+                            <div key={i} className="bg-gray-900 p-3 rounded">
+                                <p><strong className="text-cyan-500">Page:</strong> {form.page}</p>
+                                <p><strong className="text-cyan-500">Action:</strong> {form.action}</p>
+                                <p><strong className="text-cyan-500">Method:</strong> {form.method}</p>
+                                <p><strong className="text-cyan-500">Inputs:</strong> {form.inputs.map(inp => inp.name || '[unnamed]').join(', ')}</p>
+                            </div>
+                        ))}
+                    </div>
+                </CollapsibleSection>
+            </div>
+          </div>
+        )}
+        
+        <footer className="text-center mt-16 text-gray-500 text-sm">
+            <p>Developed by Swapneel Ghosh & Jagadeesh Chandra Duggirala.</p>
+            <p className="mt-2 font-mono text-xs">Disclaimer: Use only for authorized and educational purposes.</p>
+        </footer>
+      </div>
+    </main>
   );
 }
+
