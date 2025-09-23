@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+Next Scout
 
-## Getting Started
+A simple yet powerful web vulnerability scanner built with a modern, full-stack Next.js architecture. This application is designed to crawl a target website, identify potential attack vectors, and test for common security vulnerabilities like Cross-Site Scripting (XSS) and SQL Injection (SQLi).
 
-First, run the development server:
+This project was developed by Swapneel Ghosh and Jagadeesh Chandra Duggirala.
+Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+    Recursive Web Crawler: Systematically navigates a target website to discover all internal links and pages.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+    Automated Form Discovery: Identifies all HTML forms on a site, which are the primary entry points for attacks.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+    Cross-Site Scripting (XSS) Scanner: Actively probes form inputs for reflected XSS vulnerabilities by injecting a payload and analyzing the server's response.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+    SQL Injection (SQLi) Scanner: Tests for basic, error-based SQLi vulnerabilities by submitting common SQL special characters and looking for database error messages.
 
-## Learn More
+    Modern & Responsive UI: A clean, user-friendly interface built with Tailwind CSS that provides a seamless experience on any device.
 
-To learn more about Next.js, take a look at the following resources:
+    Side-by-Side Results Dashboard: Presents scan results in an intuitive two-column layout, separating the summary and vulnerabilities from detailed crawler data.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Technology Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Next Scout is built with a monorepo full-stack architecture, leveraging the power of JavaScript/TypeScript across the entire application.
 
-## Deploy on Vercel
+    Framework: Next.js (handles both React frontend and Node.js backend API routes)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+    Language: TypeScript
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+    Styling: Tailwind CSS
+
+    HTTP Client: Axios (for making requests to the target server from the backend)
+
+    HTML Parsing: Cheerio (for efficiently parsing HTML and extracting links/forms on the server-side)
+
+How It Works
+
+The application follows a systematic, multi-step process to perform a scan:
+
+    User Input: The user provides a target URL through the React frontend.
+
+    API Request: The frontend sends a POST request to the /api/scan backend endpoint.
+
+    Web Crawling: The backend crawler receives the URL, fetches the page content, and recursively discovers all unique internal links and forms. It systematically traverses the website to build a map of potential targets.
+
+    Vulnerability Scanning: For each discovered form, the scanning modules programmatically submit a series of crafted payloads designed to detect XSS and SQLi vulnerabilities.
+
+    Analysis & Reporting: The scanners analyze the server's responses for evidence of security flaws (e.g., reflected scripts or database errors). All findings are aggregated and sent back to the frontend, where they are displayed in the results dashboard.
+
+Getting Started
+
+To get a local copy up and running, follow these simple steps.
+Prerequisites
+
+Make sure you have Node.js and npm installed on your machine.
+
+    Node.js (v18.x or later recommended)
+
+    npm
+
+Installation & Setup
+
+    Clone the repository:
+
+    git clone [https://github.com/your-username/next-scout.git](https://github.com/your-username/next-scout.git)
+    cd next-scout
+
+    Install NPM packages:
+
+    npm install
+
+    Run the development server:
+
+    npm run dev
+
+Open http://localhost:3000 with your browser to see the result.
+Ethical Considerations and Usage Policy
+
+This tool is for educational purposes only.
+
+    Principle of Authorized Use: Only run Next Scout against websites that you own or have explicit, written permission to test.
+
+    Non-Destructive Testing: The scanning modules are designed to be non-destructive. They identify vulnerabilities without exploiting them or harming the target system.
+
+    Data Privacy: The application does not store any scan results or user data.
+
+Unauthorized scanning of websites is illegal. The developers assume no liability and are not responsible for any misuse or damage caused by this program.
