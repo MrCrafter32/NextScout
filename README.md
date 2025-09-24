@@ -60,7 +60,7 @@ Installation & Setup
 
     Clone the repository:
 
-    git clone [https://github.com/MrCrafter32/next-scout.git](https://github.com/MrCrafter32/next-scout.git)
+    git clone https://github.com/MrCrafter32/NextScout.git
     cd next-scout
 
     Install NPM packages:
