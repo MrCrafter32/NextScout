@@ -3,11 +3,18 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { isIP } from 'node:net';
 
-const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const BLOCKED_HOSTS = new Set([
+    'localhost',
+    'localhost.localdomain',
+    '127.0.0.1',
+    '::1',
+    '0.0.0.0',
+    '0',
+]);
 
 function isPrivateIPv4(hostname) {
     const octets = hostname.split('.').map(Number);
-    if (octets.length !== 4 || octets.some(Number.isNaN)) return false;
+    if (octets.length !== 4 || octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
 
     const [a, b] = octets;
     if (a === 10) return true;
@@ -18,6 +25,13 @@ function isPrivateIPv4(hostname) {
     return false;
 }
 
+function isPrivateIPv6(hostname) {
+    const lowered = hostname.toLowerCase();
+    if (lowered === '::1') return true; // loopback
+    // Unique local addresses fc00::/7 and link-local fe80::/10
+    return lowered.startsWith('fc') || lowered.startsWith('fd') || lowered.startsWith('fe8') || lowered.startsWith('fe9') || lowered.startsWith('fea') || lowered.startsWith('feb');
+}
+
 function isBlockedTarget(hostname) {
     const lowered = hostname.toLowerCase();
     if (BLOCKED_HOSTS.has(lowered)) return true;
@@ -26,6 +40,10 @@ function isBlockedTarget(hostname) {
         return isPrivateIPv4(lowered);
     }
     if (ipVersion === 6) {
+        return isPrivateIPv6(lowered);
+    }
+    // Block invalid IPv4-like hostnames (e.g., numeric dotted but not valid IP)
+    if (/^[0-9.]+$/.test(lowered) && ipVersion === 0) {
         return true;
     }
     return false;
