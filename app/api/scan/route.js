@@ -1,6 +1,45 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { isIP } from 'node:net';
+
+const BLOCKED_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isPrivateIPv4(hostname) {
+    const octets = hostname.split('.').map(Number);
+    if (octets.length !== 4 || octets.some(Number.isNaN)) return false;
+
+    const [a, b] = octets;
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    return false;
+}
+
+function isBlockedTarget(hostname) {
+    const lowered = hostname.toLowerCase();
+    if (BLOCKED_HOSTS.has(lowered)) return true;
+    const ipVersion = isIP(lowered);
+    if (ipVersion === 4) {
+        return isPrivateIPv4(lowered);
+    }
+    if (ipVersion === 6) {
+        return true;
+    }
+    return false;
+}
+
+function isAllowedHttpUrl(target) {
+    try {
+        const parsed = target instanceof URL ? target : new URL(target);
+        if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+        return !isBlockedTarget(parsed.hostname);
+    } catch {
+        return false;
+    }
+}
 
 // Helper function to fetch and parse a URL
 async function fetchAndParse(url) {
@@ -106,14 +145,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
-    const targetDomain = new URL(url).hostname;
-    const urlsToVisit = [url];
+    const parsedTargetUrl = new URL(url);
+    if (!isAllowedHttpUrl(parsedTargetUrl)) {
+      return NextResponse.json({ error: 'URL must be http(s) and cannot point to private or local addresses' }, { status: 400 });
+    }
+
+    const targetDomain = parsedTargetUrl.hostname;
+    const urlsToVisit = [parsedTargetUrl.href];
     const visitedUrls = new Set();
     const discoveredForms = [];
     const maxPages = 50;
 
     while (urlsToVisit.length > 0 && visitedUrls.size < maxPages) {
         const currentUrl = urlsToVisit.shift();
+        if (!currentUrl || !isAllowedHttpUrl(currentUrl)) continue;
         if (visitedUrls.has(currentUrl)) continue;
         visitedUrls.add(currentUrl);
         const $ = await fetchAndParse(currentUrl);
@@ -121,8 +166,10 @@ export async function POST(request) {
         $('a').each((i, el) => {
             let absLink;
             try { absLink = new URL($(el).attr('href'), currentUrl).href; } catch (e) { return; }
-            if (new URL(absLink).hostname === targetDomain) {
-                const cleanLink = absLink.split('#')[0];
+            const parsedLink = new URL(absLink);
+            if (!isAllowedHttpUrl(parsedLink)) return;
+            if (parsedLink.hostname === targetDomain) {
+                const cleanLink = parsedLink.href.split('#')[0];
                 if (!visitedUrls.has(cleanLink)) urlsToVisit.push(cleanLink);
             }
         });
@@ -131,9 +178,11 @@ export async function POST(request) {
             $(el).find('input, textarea, select').each((i, inputEl) => {
                 inputs.push({ type: $(inputEl).attr('type') || 'text', name: $(inputEl).attr('name') });
             });
+            const actionUrl = new URL($(el).attr('action') || currentUrl, currentUrl);
+            if (!isAllowedHttpUrl(actionUrl) || actionUrl.hostname !== targetDomain) return;
             discoveredForms.push({
                 page: currentUrl,
-                action: new URL($(el).attr('action') || currentUrl, currentUrl).href,
+                action: actionUrl.href,
                 method: ($(el).attr('method') || 'GET').toUpperCase(),
                 inputs,
             });
@@ -166,4 +215,3 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message || 'An internal server error occurred.' }, { status: 500 });
   }
 }
-
